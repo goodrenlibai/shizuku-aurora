@@ -94,7 +94,7 @@ class WriteShellUseCase(private val repo: ShellRepository) {
 }
 
 class ExecShellUseCase(private val repo: ShellRepository) {
-    operator fun invoke(command: String): Flow<ShellLine> = repo.exec(command)
+    suspend operator fun invoke(command: String): Flow<ShellLine> = repo.exec(command)
 }
 
 class CloseShellUseCase(private val repo: ShellRepository) {

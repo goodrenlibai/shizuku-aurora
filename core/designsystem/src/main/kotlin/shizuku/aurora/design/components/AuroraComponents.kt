@@ -189,7 +189,7 @@ fun AuroraListItem(
     subtitle: String? = null,
     leadingIcon: ImageVector? = null,
     leadingTint: Color = MaterialTheme.colorScheme.primary,
-    trailing: @Composable RowScope.() -> Unit = {},
+    trailing: @Composable () -> Unit = {},
     onClick: (() -> Unit)? = null,
 ) {
     val itemModifier = if (onClick != null) {
@@ -310,8 +310,7 @@ fun KeyValueRow(
     }
 }
 
-/** 图标语义封装：便于在语义提示中统一使用。 */
-@Composable
+/** 图标语义封装：便于在语义提示中统一使用（纯函数，非 @Composable）。 */
 fun toneIcon(tone: StatusTone): ImageVector = when (tone) {
     StatusTone.SUCCESS -> Icons.Filled.CheckCircle
     StatusTone.WARNING -> Icons.Filled.Warning
