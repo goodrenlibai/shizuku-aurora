@@ -37,7 +37,7 @@ class SystemRepositoryImpl @Inject constructor() : SystemRepository {
         androidVersion = Build.VERSION.RELEASE,
         apiLevel = Build.VERSION.SDK_INT,
         abi = Build.SUPPORTED_ABIS.joinToString(", "),
-        hasRoot = runCatching { Shell.isAppGrantedRoot() }.getOrDefault(false),
+        hasRoot = runCatching { Shell.isAppGrantedRoot() == true }.getOrDefault(false),
         wirelessDebugAvailable = Build.VERSION.SDK_INT >= 30,
     )
 

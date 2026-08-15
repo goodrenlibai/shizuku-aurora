@@ -26,7 +26,7 @@ abstract class AuroraDatabase : RoomDatabase() {
 
         fun build(context: Context): AuroraDatabase =
             Room.databaseBuilder(context, AuroraDatabase::class.java, NAME)
-                .fallbackToDestructiveMigration(destructiveMigrationDropTables = true)
+                .fallbackToDestructiveMigration()
                 .build()
     }
 }

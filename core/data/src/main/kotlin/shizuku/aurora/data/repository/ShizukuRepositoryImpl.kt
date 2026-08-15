@@ -103,7 +103,7 @@ class ShizukuRepositoryImpl @Inject constructor(
         _status.value = ShizukuStatus(
             running = true,
             version = client.getVersion(),
-            versionCode = 0,
+            versionCode = client.getVersionCode(),
             mode = mode,
             serverUid = uid,
             permissionGranted = client.checkPermission(),

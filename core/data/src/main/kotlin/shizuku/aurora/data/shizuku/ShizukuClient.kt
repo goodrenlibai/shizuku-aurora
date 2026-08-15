@@ -11,10 +11,12 @@ import rikka.shizuku.Shizuku
  *   2. 便于在单元测试中用 Fake 替换；
  *   3. 集中处理「server 未运行时的 IllegalStateException」等边界。
  *
- * 关键事实（源自官方 Shizuku-API 文档）：
+ * 关键事实（依据官方 Shizuku-API 源码逐一核实）：
  *   - getUid()：ROOT=0，ADB=2000，用于判定运行身份；
- *   - newProcess()：以 server 身份（shell/root）启动进程，用于 rish 控制台；
- *   - checkSelfPermission()/requestPermission()：与运行时权限同构的授权流程。
+ *   - getVersion()：返回 int（server API version），非字符串版本名；
+ *   - checkSelfPermission()/requestPermission()：与运行时权限同构的授权流程；
+ *   - 官方 API 13.1.5 中 newProcess 为 private（且已废弃），故本工程不依赖
+ *     远程进程启动，特权 shell 由 libsu（root）提供，见 ShellRepositoryImpl。
  */
 class ShizukuClient {
 
@@ -25,9 +27,13 @@ class ShizukuClient {
 
     fun isBinderAlive(): Boolean = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
 
-    fun getBinder() = runCatching { Shizuku.getBinder() }.getOrNull()
+    fun getBinder(): android.os.IBinder? = runCatching { Shizuku.getBinder() }.getOrNull()
 
-    fun getVersion(): String = runCatching { Shizuku.getVersion() }.getOrDefault("")
+    /** server API version（int），转为字符串供展示。 */
+    fun getVersion(): String = getVersionCode().toString()
+
+    /** server API version（int）。 */
+    fun getVersionCode(): Int = runCatching { Shizuku.getVersion() }.getOrDefault(-1)
 
     /** 0 = root，2000 = shell/adb。 */
     fun getUid(): Int = runCatching { Shizuku.getUid() }.getOrDefault(-1)
@@ -59,9 +65,4 @@ class ShizukuClient {
     fun removePermissionResultListener(listener: Shizuku.OnRequestPermissionResultListener) {
         Shizuku.removeRequestPermissionResultListener(listener)
     }
-
-    /** 以 server 身份执行命令（rish 控制台底层）。 */
-    fun newProcess(cmd: Array<String>): Process? = runCatching {
-        Shizuku.newProcess(cmd, null, "/")
-    }.getOrNull()
 }

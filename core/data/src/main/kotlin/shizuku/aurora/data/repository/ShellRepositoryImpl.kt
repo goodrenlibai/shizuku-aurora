@@ -1,95 +1,94 @@
 package shizuku.aurora.data.repository
 
+import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.launch
-import shizuku.aurora.data.shizuku.ShizukuClient
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import shizuku.aurora.domain.model.ShellLine
 import shizuku.aurora.domain.repository.ShellRepository
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * 交互式 Shell（rish 控制台）实现。
+ * 交互式 Shell 实现（基于 libsu 的 root shell）。
  * ------------------------------------------------------------------
- * 以官方 `Shizuku.newProcess()` 以 server 身份（shell/root）启动 `/system/bin/sh`，
- * 将 stdout/stderr 流式转换为 [ShellLine]。写操作通过持有进程的 stdin 进行。
- * 阻塞式 IO 全部运行于 IO 调度器，避免阻塞主线程。
+ * 官方 Shizuku API 13.1.5 未公开远程进程启动方法（newProcess 为 private 且
+ * 已废弃），故控制台以 libsu 提供特权 shell：
+ *   - [openInteractive] 获取持久 root shell 会话，并转发共享输出流；
+ *   - [write] 在会话内执行命令（cd 等状态得以保持），结果经共享流回流；
+ *   - [exec] 一次性执行命令（无持久状态）。
+ * 所有阻塞 IO 均运行于 IO 调度器。
  */
 @Singleton
-class ShellRepositoryImpl @Inject constructor(
-    private val client: ShizukuClient,
-) : ShellRepository {
+class ShellRepositoryImpl @Inject constructor() : ShellRepository {
+
+    private val output = MutableSharedFlow<ShellLine>(extraBufferCapacity = 512)
 
     @Volatile
-    private var currentProcess: Process? = null
+    private var shell: Shell? = null
 
-    override fun openInteractive(): Flow<ShellLine> = channelFlow {
-        val process = client.newProcess(arrayOf("/system/bin/sh", "-i"))
-            ?: run {
-                send(ShellLine("shizuku: cannot start shell (server not running?)", true, System.currentTimeMillis()))
-                return@channelFlow
-            }
-        currentProcess = process
-
-        val out = process.inputStream
-        val err = process.errorStream
-
-        launch(Dispatchers.IO) {
-            streamLines(out, false) { send(it) }
+    override fun openInteractive(): Flow<ShellLine> = flow {
+        val session = withContext(Dispatchers.IO) {
+            runCatching { Shell.getShell() }.getOrNull()
         }
-        launch(Dispatchers.IO) {
-            streamLines(err, true) { send(it) }
+        if (session == null) {
+            emit(
+                ShellLine(
+                    "shizuku: root shell unavailable (device is not rooted)",
+                    isStderr = true,
+                    timestamp = System.currentTimeMillis(),
+                ),
+            )
+            return@flow
         }
-
-        // 阻塞至进程退出（channelFlow 生命周期内保持流）
-        try {
-            process.waitFor()
-        } finally {
-            currentProcess = null
-            close()
-        }
+        shell = session
+        emit(
+            ShellLine(
+                "Shizuku Aurora console (root shell) — enter commands below",
+                isStderr = false,
+                timestamp = System.currentTimeMillis(),
+            ),
+        )
+        emitAll(output)
     }
 
     override suspend fun write(line: String) {
-        val proc = currentProcess ?: return
-        runCatching {
-            proc.outputStream.write((line + "\n").toByteArray())
-            proc.outputStream.flush()
+        val session = shell ?: return
+        if (line.trim().equals("exit", ignoreCase = true)) {
+            shell = null
+            return
         }
+        val result = withContext(Dispatchers.IO) {
+            runCatching { session.newJob().add(line).exec() }.getOrNull()
+        } ?: return
+        val now = System.currentTimeMillis()
+        result.out.forEach { output.emit(ShellLine(it, false, now)) }
+        result.err.forEach { output.emit(ShellLine(it, true, now)) }
     }
 
-    override fun exec(command: String): Flow<ShellLine> = channelFlow {
-        val process = client.newProcess(arrayOf("/system/bin/sh", "-c", command))
-            ?: run {
-                send(ShellLine("shizuku: cannot run command", true, System.currentTimeMillis()))
-                return@channelFlow
-            }
-        launch(Dispatchers.IO) {
-            streamLines(process.inputStream, false) { send(it) }
+    override fun exec(command: String): Flow<ShellLine> = flow {
+        val result = withContext(Dispatchers.IO) {
+            runCatching { Shell.cmd(command).exec() }.getOrNull()
         }
-        launch(Dispatchers.IO) {
-            streamLines(process.errorStream, true) { send(it) }
+        if (result == null) {
+            emit(
+                ShellLine(
+                    "shizuku: command failed",
+                    isStderr = true,
+                    timestamp = System.currentTimeMillis(),
+                ),
+            )
+            return@flow
         }
-        process.waitFor()
+        val now = System.currentTimeMillis()
+        result.out.forEach { emit(ShellLine(it, false, now)) }
+        result.err.forEach { emit(ShellLine(it, true, now)) }
     }
 
     override fun close() {
-        currentProcess?.destroy()
-        currentProcess = null
-    }
-
-    private fun streamLines(
-        input: java.io.InputStream,
-        isStderr: Boolean,
-        onLine: (ShellLine) -> Unit,
-    ) {
-        val reader = BufferedReader(InputStreamReader(input))
-        reader.forEachLine { line ->
-            onLine(ShellLine(line, isStderr, System.currentTimeMillis()))
-        }
+        shell = null
     }
 }
