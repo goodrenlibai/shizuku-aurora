@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Shizuku Aurora</string>
+    <string name="tile_label">Shizuku Aurora</string>
+    <string name="notification_channel_service">Service status</string>
+    <string name="notification_channel_service_desc">Shizuku server status and control</string>
+</resources>

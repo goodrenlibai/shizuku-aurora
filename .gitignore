@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+local.properties
+
+# Android
+*.apk
+*.aab
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+
+# Signing（不应提交密钥）
+signing.gradle
+*.jks
+*.keystore

@@ -1,0 +1,67 @@
+# Shizuku Aurora — Android 自动构建与 APK 产物发布
+#
+# 触发条件：
+#   1. push：推送到任意分支（含默认分支）即触发
+#   2. workflow_dispatch：在 GitHub Actions 页面手动触发（可选构建类型）
+#
+# 说明：
+#   - 使用仓库内置 GITHUB_TOKEN（无需在此暴露任何个人令牌）。
+#   - 无签名配置，默认构建 debug APK 并上传为 artifact。
+name: Android Build
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'APK build type'
+        required: true
+        type: choice
+        default: 'debug'
+        options:
+          - debug
+          - release
+
+# 最小权限原则：仅需读取代码与上传 artifact
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # 工程未提交 gradle-wrapper.jar，此处指定固定 Gradle 版本
+          gradle-version: '8.11.1'
+
+      - name: Build APK
+        env:
+          BUILD_TYPE: ${{ github.event.inputs.build_type || 'debug' }}
+        run: |
+          echo "Building ${BUILD_TYPE} APK ..."
+          # 首字母大写拼出 assembleDebug / assembleRelease 任务名
+          gradle ":app:assemble${BUILD_TYPE^}"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14

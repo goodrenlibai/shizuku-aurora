@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动主题：在 Compose 首帧前显示纯色背景，避免白屏闪烁 -->
+    <style name="Theme.Aurora" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+    </style>
+</resources>
