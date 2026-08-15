@@ -6,6 +6,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import shizuku.aurora.domain.model.ConnectionMode
 import shizuku.aurora.domain.repository.ShizukuRepository
@@ -30,7 +31,7 @@ class AuroraTileService : TileService() {
     override fun onClick() {
         super.onClick()
         scope.launch {
-            val status = kotlinx.coroutines.flow.first(shizukuRepository.observeStatus())
+            val status = shizukuRepository.observeStatus().first()
             if (status.running) {
                 shizukuRepository.stop()
             } else {

@@ -247,7 +247,7 @@ private fun QuickAction(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    useCases: AuroraUseCases,
+    private val useCases: AuroraUseCases,
 ) : ViewModel() {
 
     val status = useCases.observeStatus()

@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import shizuku.aurora.domain.model.ConnectionMode
 import shizuku.aurora.domain.repository.PreferencesRepository
@@ -39,7 +40,7 @@ class AutoStartService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
         scope.launch {
-            val settings = kotlinx.coroutines.flow.first(preferencesRepository.observeSettings())
+            val settings = preferencesRepository.observeSettings().first()
             val mode = when (settings.autoStartMode) {
                 "ROOT" -> ConnectionMode.ROOT
                 else -> ConnectionMode.ADB
