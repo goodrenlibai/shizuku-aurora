@@ -69,7 +69,7 @@ class ShellRepositoryImpl @Inject constructor() : ShellRepository {
         result.err.forEach { output.emit(ShellLine(it, true, now)) }
     }
 
-    override fun exec(command: String): Flow<ShellLine> = flow {
+    override suspend fun exec(command: String): Flow<ShellLine> = flow {
         val result = withContext(Dispatchers.IO) {
             runCatching { Shell.cmd(command).exec() }.getOrNull()
         }
